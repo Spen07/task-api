@@ -1,0 +1,118 @@
+---
+- name: Deploiement de task-api sur VM Ubuntu
+  hosts: vm_ubuntu
+  become: true
+
+  vars:
+    image_name: "dieuvitek/task-api:latest"
+    container_name: "task-api"
+    app_port: 8085
+
+  tasks:
+
+    # ── Etape 1 : Preparation de la VM ──────────────────────────────────────
+
+    - name: Mettre a jour les paquets
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Verifier si Docker est installe
+      command: docker --version
+      register: docker_check
+      ignore_errors: true
+
+    - name: Installer les dependances Docker
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+      when: docker_check.rc != 0
+
+    - name: Ajouter la cle GPG Docker
+      shell: curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+      when: docker_check.rc != 0
+
+    - name: Ajouter le repository Docker
+      shell: |
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+        | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      when: docker_check.rc != 0
+
+    - name: Installer Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        update_cache: yes
+        state: present
+      when: docker_check.rc != 0
+
+    - name: Demarrer et activer Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Installer MySQL
+      apt:
+        name: mysql-server
+        state: present
+
+    - name: Demarrer et activer MySQL
+      systemd:
+        name: mysql
+        state: started
+        enabled: yes
+
+    # ── Etape 2 : Deploiement de l'application ───────────────────────────────
+
+    - name: Pull de l'image Docker
+      docker_image:
+        name: "{{ image_name }}"
+        source: pull
+
+    - name: Stopper l'ancien conteneur s'il existe
+      docker_container:
+        name: "{{ container_name }}"
+        state: stopped
+      ignore_errors: true
+
+    - name: Supprimer l'ancien conteneur s'il existe
+      docker_container:
+        name: "{{ container_name }}"
+        state: absent
+      ignore_errors: true
+
+    - name: Lancer le nouveau conteneur
+      docker_container:
+        name: "{{ container_name }}"
+        image: "{{ image_name }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "{{ app_port }}:{{ app_port }}"
+
+    # ── Etape 3 : Verification ────────────────────────────────────────────────
+
+    - name: Attendre que l'application demarre
+      wait_for:
+        port: "{{ app_port }}"
+        delay: 10
+        timeout: 60
+
+    - name: Verifier que l'application repond
+      uri:
+        url: "http://localhost:{{ app_port }}/api/tasks"
+        method: GET
+        status_code: 200
+      register: health_check
+
+    - name: Afficher le resultat de la verification
+      debug:
+        msg: "Application deployee et accessible sur le port {{ app_port }}"
