@@ -70,7 +70,30 @@
         state: started
         enabled: yes
 
-    # ── Etape 2 : Deploiement de l'application ───────────────────────────────
+    # ── Etape 2 : Deploiement de Nexus ───────────────────────────────────────
+
+    - name: Creer le volume Nexus
+      docker_volume:
+        name: nexus-data
+
+    - name: Lancer le conteneur Nexus
+      docker_container:
+        name: nexus
+        image: sonatype/nexus3:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "8081:8081"
+        volumes:
+          - nexus-data:/nexus-data
+
+    - name: Attendre que Nexus soit pret (peut prendre 2-3 min)
+      wait_for:
+        port: 8081
+        delay: 30
+        timeout: 180
+
+    # ── Etape 3 : Deploiement de l'application ───────────────────────────────
 
     - name: Pull de l'image Docker
       docker_image:
@@ -98,7 +121,7 @@
         ports:
           - "{{ app_port }}:{{ app_port }}"
 
-    # ── Etape 3 : Verification ────────────────────────────────────────────────
+    # ── Etape 4 : Verification ────────────────────────────────────────────────
 
     - name: Attendre que l'application demarre
       wait_for:

@@ -1,0 +1,49 @@
+stages:
+  - test
+  - build
+  - docker
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+
+cache:
+  paths:
+    - .m2/repository
+
+test:
+  stage: test
+  image: eclipse-temurin:17-jdk-alpine
+  script:
+    - chmod +x ./mvnw
+    - ./mvnw test -Dnexus.url=${NEXUS_URL}
+  only:
+    - develop
+
+build:
+  stage: build
+  image: eclipse-temurin:17-jdk-alpine
+  script:
+    - chmod +x ./mvnw
+    - ./mvnw package -DskipTests -Dnexus.url=${NEXUS_URL}
+  artifacts:
+    paths:
+      - target/*.jar
+    expire_in: 1 hour
+  only:
+    - develop
+
+docker:
+  stage: docker
+  image: docker:latest
+  services:
+    - docker:dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+  dependencies:
+    - build
+  script:
+    - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+    - docker build -t $DOCKER_IMAGE:latest .
+    - docker push $DOCKER_IMAGE:latest
+  only:
+    - develop
