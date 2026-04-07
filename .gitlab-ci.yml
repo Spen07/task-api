@@ -15,7 +15,7 @@ test:
   image: eclipse-temurin:17-jdk-alpine
   script:
     - chmod +x ./mvnw
-    - ./mvnw test -Dnexus.url=$NEXUS_URL
+    - ./mvnw test -Dnexus.url=$NEXUS_URL -s ci-settings.xml
   only:
     - develop
 
@@ -24,7 +24,7 @@ build:
   image: eclipse-temurin:17-jdk-alpine
   script:
     - chmod +x ./mvnw
-    - ./mvnw package -DskipTests -Dnexus.url=$NEXUS_URL
+    - ./mvnw package -DskipTests -Dnexus.url=$NEXUS_URL -s ci-settings.xml
   artifacts:
     paths:
       - target/*.jar
