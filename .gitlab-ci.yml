@@ -1,7 +1,6 @@
 stages:
   - test
-  - build
-  - docker
+  - build-and-push
 
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
@@ -18,22 +17,11 @@ test:
   only:
     - develop
 
-build:
-  stage: build
+build-and-push:
+  stage: build-and-push
   script:
     - chmod +x ./mvnw
     - ./mvnw package -DskipTests -Dnexus.url=$NEXUS_URL -s ci-settings.xml
-  artifacts:
-    paths:
-      - target/*.jar
-    expire_in: 1 hour
-  only:
-    - develop
-
-docker:
-  stage: docker
-  dependencies: []
-  script:
     - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
     - docker build -t $DOCKER_IMAGE:latest .
     - docker push $DOCKER_IMAGE:latest
