@@ -39,11 +39,10 @@ docker:
     - docker:dind
   variables:
     DOCKER_TLS_CERTDIR: ""
-  dependencies:
-    - build
+  dependencies: []
   script:
     - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
-    - docker build -t $DOCKER_IMAGE:latest .
+    - docker build --build-arg NEXUS_URL=$NEXUS_URL -t $DOCKER_IMAGE:latest .
     - docker push $DOCKER_IMAGE:latest
   only:
     - develop
